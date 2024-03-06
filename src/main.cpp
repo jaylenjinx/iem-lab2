@@ -22,6 +22,7 @@ void txString(char *pStr);
 
 #define button PIND3 // Buzzer Active Pin
 
+#define sOs = 343 // Speed of Sound
 double value;
 char buffer[7];
 // dtostrf(value, 7, 3, buffer);
@@ -38,13 +39,15 @@ int main(void)
   char flag_read = 1;
 
   int u = 0;
+  int backU = 0;
 
   while (1)
   {
     unsigned int tx_data = 0;
     char strBuffer[4];
 
-    while (tx_data < 256) {
+    while (tx_data < 256)
+    {
       txString(">a:");
       txString("1");
       USART_Transmit('\n');
@@ -56,7 +59,7 @@ int main(void)
 
       tx_data++;
     }
-    
+
     PORTB = 0b00000000; // write low
     _delay_us(2);
     PORTB = 0b00000001; // write high
@@ -64,15 +67,21 @@ int main(void)
     PORTB = 0b00000000; // write low
     _delay_ms(30);
 
-    while (!ultraP2)
-    {
-      u = 0;
-    }
-
-    while (ultraP2)
+    if (!ultraP2)
     {
       u++;
       _delay_us(1);
+    }
+    else if (ultraP2)
+    {
+      backU = u;
+      u = 0;
+    }
+
+    if (backU = 2.91) {
+      txString(">a:");
+      txString("1");
+      USART_Transmit('\n');
     }
   }
 }
