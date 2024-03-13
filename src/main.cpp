@@ -2,11 +2,12 @@
 #include <util/delay.h>
 #include <stdlib.h>
 #include <math.h>
+#include <stdio.h>
 
 #define F_CPU 16000000UL
 
 #define bitSet(reg, n) (reg |= 1 << n)
-#define bitRead(reg, n) (reg & (1 << n))
+#define bitRead(reg, n) ((reg >> n) & 0x01)
 #define bitClear(reg, n) (reg &= ~(1 << n))
 
 #define FOSC 16000000
@@ -17,74 +18,65 @@ void USART_Init(unsigned int ubrr);
 void USART_Transmit(unsigned char data);
 void txString(char *pStr);
 
-#define ultraP1 PINB0 // Ultrasonic Send Pin
-#define ultraP2 PINB1 // Ultrasonic Recieve Pin
+#define ultraTrig PINB0 // Ultrasonic Send Pin
+#define ultraEcho PINB1 // Ultrasonic Recieve Pin
 
 #define button PIND3 // Buzzer Active Pin
-
-#define sOs = 343 // Speed of Sound
+ 
+#define sOs 343 // Speed of Sound
 double value;
 char buffer[7];
+char bufferInch[7];
 // dtostrf(value, 7, 3, buffer);
 
 int main(void)
 {
-  DDRB = DDRB | (1 << ultraP1);
-  DDRB = DDRB | (0 << ultraP2);
+  DDRB |= (1 << ultraTrig);
+  DDRB &= ~(1 << ultraEcho);
 
   DDRD = DDRD | (0 << button);
 
   USART_Init(MYUBRR);
-  char txBuffer[20];
-  char flag_read = 1;
 
   int u = 0;
-  int backU = 0;
+  double duration;
+  double distance;
+  double distanceInch;
 
   while (1)
   {
-    unsigned int tx_data = 0;
-    char strBuffer[4];
-
-    while (tx_data < 256)
-    {
-      txString(">a:");
-      txString("1");
-      USART_Transmit('\n');
-      _delay_ms(100);
-
-      txString(">a:");
-      txString("2");
-      USART_Transmit('\n');
-
-      tx_data++;
-    }
-
-    PORTB = 0b00000000; // write low
-    _delay_us(2);
-    PORTB = 0b00000001; // write high
+    bitSet(PORTB, ultraTrig);
     _delay_us(10);
-    PORTB = 0b00000000; // write low
-    _delay_ms(30);
+    bitClear(PORTB, ultraTrig);
 
-    if (!ultraP2)
-    {
-      u++;
-      _delay_us(1);
-    }
-    else if (ultraP2)
-    {
-      backU = u;
-      u = 0;
-    }
+    while(!bitRead(PINB, ultraEcho)); //wait for echo to go high 
 
-    if (backU = 2.91) {
-      txString(">a:");
-      txString("1");
-      USART_Transmit('\n');
-    }
-  }
+    TCNT1 = 0;
+    TCCR1B |= (1 << CS10);
+
+    while(bitRead(PINB, ultraEcho)); //time echo high time
+    TCCR1B = 0;
+    duration = TCNT1;
+    distance = (duration / sOs ) / 2;
+    // distanceInch = distance / 2.54;
+
+    dtostrf(distance, 7, 3, buffer ); //converts int to string that is 7 digits with 3 digits after the decimal
+    // dtostrf(distanceInch, 7, 3, bufferInch );
+
+    txString(">a:"); // send string
+    txString(buffer);
+    USART_Transmit('\n'); 
+
+    /*txString(">b:"); // send string
+    txString(bufferInch);
+    USART_Transmit('\n'); */
+
+    _delay_ms(100);
+  } 
 }
+
+
+
 
 void USART_Init(unsigned int ubrr)
 {
@@ -110,6 +102,7 @@ void USART_Transmit(unsigned char data)
 
 void txString(char *pStr)
 {
+  // Transmit string character by character
   while (*pStr != '\0')
   {
     USART_Transmit(*pStr);
